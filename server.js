@@ -12,18 +12,30 @@ const HELLO_BODY = 'Hello world';
 const NOT_FOUND_BODY = 'Not Found';
 const CONTENT_TYPE_TEXT = 'text/plain';
 
+// Writes a final message and exits only once the stream has handed it to the
+// operating system: a write to a pipe is asynchronous, so exiting straight after it
+// could end the process before the message is delivered.
+function exitAfterWrite(stream, message, statusCode) {
+  stream.write(message + '\n', function onMessageWritten() {
+    process.exit(statusCode);
+  });
+}
+
 // Turns the raw PORT value into a usable port number, or reports the problem on
-// stderr and exits with status 1. Returns a number between 1024 and 65535.
+// stderr and exits with status 1. Returns a number between 1024 and 65535, or null
+// once a problem has been reported and the process is exiting.
 function resolvePort(rawValue) {
   if (rawValue === undefined) {
     return DEFAULT_PORT;
   }
 
   if (!/^\d+$/.test(rawValue)) {
-    console.error(
-      'Configuration error: PORT="' + rawValue + '" is not a valid port number. Use an integer between 1024 and 65535.'
+    exitAfterWrite(
+      process.stderr,
+      'Configuration error: PORT="' + rawValue + '" is not a valid port number. Use an integer between 1024 and 65535.',
+      1
     );
-    process.exit(1);
+    return null;
   }
 
   const port = Number(rawValue);
@@ -31,10 +43,12 @@ function resolvePort(rawValue) {
   // The range starts at 1024 because ports below it are privileged: rejecting them
   // here keeps the server from ever seizing a port reserved for system services.
   if (port < PORT_MIN || port > PORT_MAX) {
-    console.error(
-      'Configuration error: PORT=' + rawValue + ' is out of range. Use an integer between 1024 and 65535.'
+    exitAfterWrite(
+      process.stderr,
+      'Configuration error: PORT=' + rawValue + ' is out of range. Use an integer between 1024 and 65535.',
+      1
     );
-    process.exit(1);
+    return null;
   }
 
   return port;
@@ -81,29 +95,32 @@ const server = http.createServer(handleRequest);
 // failure is written to any HTTP response.
 function handleServerError(error) {
   if (error.code === 'EADDRINUSE') {
-    console.error(
-      'Error: port ' + port + ' is already in use. Stop the process using it or start with a different port, e.g. PORT=3001 node server.js.'
+    exitAfterWrite(
+      process.stderr,
+      'Error: port ' + port + ' is already in use. Stop the process using it or start with a different port, e.g. PORT=3001 node server.js.',
+      1
     );
   } else {
-    console.error('Error: failed to start the server: ' + error.message);
+    exitAfterWrite(process.stderr, 'Error: failed to start the server: ' + error.message, 1);
   }
-
-  process.exit(1);
 }
 
 server.on('error', handleServerError);
 
-server.listen(port, function onServerListening() {
-  console.log('Server listening on port ' + port);
-});
+// A null port means resolvePort has already reported a configuration error and the
+// process is exiting with status 1, so nothing may be bound in that case.
+if (port !== null) {
+  server.listen(port, function onServerListening() {
+    console.log('Server listening on port ' + port);
+  });
+}
 
 // Logs the shutdown, stops accepting connections, and exits with status 0.
 function shutdown(signal) {
-  console.log('Received SIGINT. Shutting down gracefully...');
+  console.log('Received ' + signal + '. Shutting down gracefully...');
 
   server.close(function onServerClosed() {
-    console.log('Server closed. Exiting.');
-    process.exit(0);
+    exitAfterWrite(process.stdout, 'Server closed. Exiting.', 0);
   });
 
   // closeIdleConnections() exists only from Node.js 18.2.0, so it is feature-detected
@@ -111,6 +128,14 @@ function shutdown(signal) {
   // socket immediately instead of holding server.close() for the default 5s timeout.
   if (typeof server.closeIdleConnections === 'function') {
     server.closeIdleConnections();
+  }
+
+  // A connection that has not finished sending its request is not idle, so the call
+  // above leaves it holding server.close() open; closeAllConnections() (also from
+  // Node.js 18.2.0, feature-detected for the same reason) closes it, so CTRL+C always
+  // reaches the prompt instead of waiting on a client that never completes its request.
+  if (typeof server.closeAllConnections === 'function') {
+    server.closeAllConnections();
   }
 }
 
