@@ -60,21 +60,19 @@ function handleRequest(req, res) {
   // Logged before the routing decision so that unmatched requests are logged too.
   logRequest(req);
 
-  let pathname;
-
   try {
-    pathname = new URL(req.url, 'http://localhost').pathname;
+    const pathname = new URL(req.url, 'http://localhost').pathname;
+
+    if (req.method === 'GET' && pathname === HELLO_PATH) {
+      sendPlainTextResponse(res, 200, HELLO_BODY);
+    } else {
+      sendPlainTextResponse(res, 404, NOT_FOUND_BODY);
+    }
   } catch {
-    sendPlainTextResponse(res, 404, NOT_FOUND_BODY);
-    return;
+    if (!res.headersSent) {
+      sendPlainTextResponse(res, 404, NOT_FOUND_BODY);
+    }
   }
-
-  if (req.method === 'GET' && pathname === HELLO_PATH) {
-    sendPlainTextResponse(res, 200, HELLO_BODY);
-    return;
-  }
-
-  sendPlainTextResponse(res, 404, NOT_FOUND_BODY);
 }
 
 const server = http.createServer(handleRequest);
