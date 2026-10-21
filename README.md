@@ -16,6 +16,8 @@ A minimal, dependency-free Node.js HTTP server that serves one endpoint and one 
 
 Nothing needs to be installed beyond Node.js itself. The project declares no `dependencies` and no `devDependencies`, so `npm install` is not needed, no packages are downloaded and no lockfile is produced or committed. Place the three files — `server.js`, `package.json` and `README.md` — in one directory and the project is ready to run.
 
+Run every command in this document from that directory — the one that holds `server.js`.
+
 ## Running the server
 
 ```bash
@@ -48,7 +50,7 @@ The served route answers `200` with the body `Hello world`:
 $ curl -s -i http://localhost:3000/hello
 HTTP/1.1 200 OK
 Content-Type: text/plain
-Date: Tue, 21 Oct 2026 08:32:15 GMT
+Date: Wed, 21 Oct 2026 08:32:15 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
 Transfer-Encoding: chunked
@@ -62,7 +64,7 @@ An unmatched path answers `404` with the body `Not Found`:
 $ curl -s -i http://localhost:3000/invalid
 HTTP/1.1 404 Not Found
 Content-Type: text/plain
-Date: Tue, 21 Oct 2026 08:32:15 GMT
+Date: Wed, 21 Oct 2026 08:32:15 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
 Transfer-Encoding: chunked
@@ -84,7 +86,7 @@ curl -s -i -X POST http://localhost:3000/hello
 $ curl -s -i -X POST http://localhost:3000/hello
 HTTP/1.1 404 Not Found
 Content-Type: text/plain
-Date: Tue, 21 Oct 2026 08:32:15 GMT
+Date: Wed, 21 Oct 2026 08:32:15 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
 Transfer-Encoding: chunked
